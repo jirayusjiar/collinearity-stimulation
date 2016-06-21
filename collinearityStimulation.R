@@ -19,7 +19,7 @@ writeLine <- function(arg1,arg2){
 
 corrGraph <- function(dataset,inputMean,inputSD){
   vc <- varclus(~.,
-                data=dataset[c('x1','x2','x3')],
+                data=dataset[c('x1','x2','x3','x4','x5')],
                 similarity = "spearman",
                 trans="abs")
   png(height=1080, width=1080, pointsize=15, file=paste0("./output/Correlation_Mean",inputMean,"_SD",inputSD,".png"))
@@ -45,12 +45,12 @@ anovaToCsv <- function(inputAnova,varOrder,inputSD){
 
 interpretModel <- function(model,inputSD){
   
-  refOrder = c('x1','x2','x3')
+  refOrder = c('x1','x2','x3','x4','x5')
   lrAnova <- data.frame(
                 # Likelyhood Ratio Chisquare
                 Chisq = Anova(model,test.statistic ="LR")[refOrder,][,1],
                 # F-test - Rsd SS, Sum square and F-value
-                FRsdSs = Anova(model,test.statistic = "F")$SS[4],
+                FRsdSs = Anova(model,test.statistic = "F")$SS[6],
                 FSs = Anova(model,test.statistic = "F")[refOrder,]$SS,
                 FF = Anova(model,test.statistic ="F")[refOrder,]$F,
                 # Deviance - Null resd dev, Deviance and Residual Deviance
@@ -64,11 +64,12 @@ interpretModel <- function(model,inputSD){
 
 generateHighlyCorrelatedDataset <- function(nInstance,inputMean,inputSD){
   
-  # datasetOutput - x2,x1 is highly correlated while x3 is not correated with any explanatory variables
-  datasetOutput <- data.frame(x1=runif(nInstance),x3=runif(nInstance))
+  # datasetOutput - (x1,x2) and (x3,x4) are highly correlated while x5 is not correated with any explanatory variables
+  datasetOutput <- data.frame(x1=runif(nInstance),x3=runif(nInstance),x5=runif(nInstance))
   
   # dataset$x(n) = dataset$x(n-1) + random noise (Normal distribution, Mean = inputMean and SD is inputSD)
   datasetOutput$x2 <- datasetOutput$x1 + rnorm(n,mean=inputMean,sd=inputSD)
+  datasetOutput$x4 <- datasetOutput$x3 + rnorm(n,mean=inputMean,sd=inputSD)
   
   # Export correlation graph
   corrGraph(datasetOutput,inputMean,inputSD)
@@ -78,32 +79,32 @@ generateHighlyCorrelatedDataset <- function(nInstance,inputMean,inputSD){
 
 experiment <- function(dataset,inputSD){
   
+  print(paste("Experiment on",inputSD,"dataset"))
   # Generate equation
-  # y = 10 + Ax1 + Bx2 + Cx3 + random noise (Mean = 0, SD = 0.5)
+  # y = 10 + Ax1 + Bx2 + Cx3 + Dx4 + Ex5 + random noise (Mean = 0, SD = 0.5)
   # Exp1: 10 10 1 -> Only change in Anova deviance
   
   A <- 10
   B <- 10
-  C <- 1
-  dataset$y <- 10 + (A*dataset$x1) + (B*dataset$x2) + (C*dataset$x3) + rnorm(100,mean = 0, sd = 0.5)
+  C <- 5
+  D <- 5
+  E <- 1
+  dataset$y <- 10 + (A*dataset$x1) + (B*dataset$x2) + (C*dataset$x3) + (D*dataset$x4) + (E*dataset$x5) + rnorm(100,mean = 0, sd = 0.5)
   
-  # Build glm models
-  g1=glm(y~x1+x2+x3,data=dataset)
-  g2=glm(y~x2+x1+x3,data=dataset)
-  g3=glm(y~x2+x3+x1,data=dataset)
-  g4=glm(y~x1+x3+x2,data=dataset)
-  g5=glm(y~x3+x1+x2,data=dataset)
-  g6=glm(y~x3+x2+x1,data=dataset)
-  
-  # Intepret models
-  interpretModel(g1,inputSD)
-  interpretModel(g2,inputSD)
-  interpretModel(g3,inputSD)
-  interpretModel(g4,inputSD)
-  interpretModel(g5,inputSD)
-  interpretModel(g6,inputSD)
-  
+  pattern <- e1071::permutations(5)
+  for(i in 1:nrow(pattern)){
+    #Generate formula
+    formulaText <- paste0("y~",paste0(paste0("x",pattern[i,]),collapse="+"))
+    # Build glm models
+    glmModel <- glm(as.formula(formulaText),data=dataset)
+    
+    # Intepret models
+    interpretModel(glmModel,inputSD)
+    
+  }
   writeLine("./output/Summarized_output.csv"," ")
+  
+  
 }
 
 ## Main
@@ -112,19 +113,20 @@ dir.create(file.path(paste0(getwd(), '/output/')), showWarnings = FALSE)
 # Init header of output file
   writeLine("./output/Summarized_output.csv",paste0(c(
             "Dataset",
-            "Var1","Var2","Var3",
-            "Chisq-x1","Chisq-x2","Chisq-x3",
-            "Fss-x1","Fss-x2","Fss-x3",
-            "FF-x1","FF-x2","FF-x3",
+            "Var1","Var2","Var3","Var4","Var5",
+            "Chisq-x1","Chisq-x2","Chisq-x3","Chisq-x4","Chisq-x5",
+            "Fss-x1","Fss-x2","Fss-x3","Fss-x4","Fss-x5",
+            "FF-x1","FF-x2","FF-x3","FF-x4","FF-x5",
             "FFRsdss",
-            "D-x1","D-x2","D-x3",
-            "DRsdD-x1","DRsdD-x2","DRsdD-x3",
+            "D-x1","D-x2","D-x3","D-x4","D-x5",
+            "DRsdD-x1","DRsdD-x2","DRsdD-x3","DRsdD-x4","DRsdD-x5",
             "DNullRsd"),collapse = ","
   ))
 
 # datasetLow - There is no collinearity among variables
-datasetLow <- data.frame(x1=runif(n),x2=runif(n),x3=runif(n))
-# datasetHigh - x1,x2 are highly correlated
+datasetLow <- data.frame(x1=runif(n),x2=runif(n),x3=runif(n),x4=runif(n),x5=runif(n))
+corrGraph(datasetLow,0,"NoHighlyCorrelated")
+# datasetHigh - (x1,x2) and (x3,x4) are highly correlated
 datasetHigh0.5 <- generateHighlyCorrelatedDataset(100,0,0.5)
 datasetHigh0.25 <- generateHighlyCorrelatedDataset(100,0,0.25)
 datasetHigh0.1 <- generateHighlyCorrelatedDataset(100,0,0.1)
