@@ -18,8 +18,9 @@ writeLine <- function(arg1,arg2){
 }
 
 corrGraph <- function(dataset,inputMean,inputSD){
+  refOrder <- c('x1','x2','x3')
   vc <- varclus(~.,
-                data=dataset[c('x1','x2','x3')],
+                data=dataset[refOrder],
                 similarity = "spearman",
                 trans="abs")
   png(height=1080, width=1080, pointsize=15, file=paste0("./output/Correlation_Mean",inputMean,"_SD",inputSD,".png"))
@@ -28,9 +29,9 @@ corrGraph <- function(dataset,inputMean,inputSD){
   dev.off()
 }
 
-anovaToCsv <- function(inputAnova,varOrder,inputSD){
+exportToCSV <- function(inputAnova,inputVIF,varOrder,inputSD){
   writeLine("./output/Summarized_output.csv",
-            # SD, Variable Order, Chisq, F-sum square, F score, F-residual sum square, Deviance, D-residual deviance, D-Null residual
+            # SD, Variable Order, Chisq, F-sum square, F score, F-residual sum square, Deviance, D-residual deviance, D-Null residual, VIF
             c(inputSD,
               varOrder,
               inputAnova$Chisq,
@@ -39,7 +40,8 @@ anovaToCsv <- function(inputAnova,varOrder,inputSD){
               inputAnova$FRsdSs[1],
               inputAnova$DDeviance,
               inputAnova$DRsd,
-              inputAnova$DNullRsd[1])
+              inputAnova$DNullRsd[1],
+              inputVIF)
   )
 }
 
@@ -58,7 +60,8 @@ interpretModel <- function(model,inputSD){
                 DDeviance = anova(model)[refOrder,]$Deviance,
                 DRsd = anova(model)[refOrder,]$`Resid. Dev`
                 )
-  anovaToCsv(lrAnova,names(model$coefficients)[-1],inputSD)
+  exportToCSV(lrAnova,vif(model)[refOrder],names(model$coefficients)[-1],inputSD)
+  
   return(lrAnova)
 }
 
@@ -115,7 +118,9 @@ dir.create(file.path(paste0(getwd(), '/output/')), showWarnings = FALSE)
             "FFRsdss",
             "D-x1","D-x2","D-x3",
             "DRsdD-x1","DRsdD-x2","DRsdD-x3",
-            "DNullRsd"),collapse = ","
+            "DNullRsd",
+            "VIF-x1","VIF-x2","VIF-x3"
+            ),collapse = ","
   ))
 
 # datasetLow - There is no collinearity among variables
