@@ -87,23 +87,19 @@ experiment <- function(dataset,inputSD){
   C <- 1
   dataset$y <- 10 + (A*dataset$x1) + (B*dataset$x2) + (C*dataset$x3) + rnorm(100,mean = 0, sd = 0.5)
   
-  # Build glm models
-  g1=glm(y~x1+x2+x3,data=dataset)
-  g2=glm(y~x2+x1+x3,data=dataset)
-  g3=glm(y~x2+x3+x1,data=dataset)
-  g4=glm(y~x1+x3+x2,data=dataset)
-  g5=glm(y~x3+x1+x2,data=dataset)
-  g6=glm(y~x3+x2+x1,data=dataset)
-  
-  # Intepret models
-  interpretModel(g1,inputSD)
-  interpretModel(g2,inputSD)
-  interpretModel(g3,inputSD)
-  interpretModel(g4,inputSD)
-  interpretModel(g5,inputSD)
-  interpretModel(g6,inputSD)
-  
+  pattern <- e1071::permutations(3)
+  for(i in 1:nrow(pattern)){
+    #Generate formula
+    formulaText <- paste0("y~",paste0(paste0("x",pattern[i,]),collapse="+"))
+    # Build glm models
+    glmModel <- glm(as.formula(formulaText),data=dataset)
+    
+    # Intepret models
+    interpretModel(glmModel,inputSD)
+    
+  }
   writeLine("./output/Summarized_output.csv"," ")
+  
 }
 
 ## Main
